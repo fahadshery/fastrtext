@@ -1,0 +1,172 @@
+---
+title: "fastrText training custom models and evaluations"
+output: html_notebook
+---
+
+I am simply testing to see how this wrapper package to fasttext a C++ library by facebook works 
+
+```{r}
+#devtools::install_github("pommedeterresautee/fastrtext")
+library(fastrtext)
+tags <- list(c(1, 5), 0)
+documents <- c("this is a text", "this is another document")
+add_tags(documents = documents, tags = tags)
+```
+
+```{r}
+# Supervised learning example
+data("train_sentences")
+data("test_sentences")
+train_sentences
+
+# prepare data
+tmp_file_model <- tempfile()
+
+#this does nothing apart from prefixing the __label__ string before the labelled class
+train_labels <- paste0("__label__", train_sentences[,"class.text"])
+
+#pre-processing text
+train_texts <- tolower(train_sentences[,"text"])
+
+train_to_write <- paste(train_labels, train_texts)
+
+train_tmp_file_txt <- tempfile()
+
+writeLines(text = train_to_write, con = train_tmp_file_txt)
+
+test_labels <- paste0("__label__", test_sentences[,"class.text"])
+test_texts <- tolower(test_sentences[,"text"])
+test_to_write <- paste(test_labels, test_texts)
+
+# train model
+
+execute(commands = c("supervised", "-input", train_tmp_file_txt,
+                    "-output", tmp_file_model, "-dim", 20, "-lr", 1,
+                    "-epoch", 20, "-wordNgrams", 2, "-verbose", 1))
+
+#load trained model
+model <- load_model(tmp_file_model)
+
+# test trained model
+head(test_labels) # so the first label is OWNX, 2nd = MISC, 3rd = MISC, 4th = OWNX, 5th = OWNX, 6th = MISC
+
+#Let's test it:
+
+predict(model, sentences = test_sentences[1:6, "text"]) # it got wrong on 5th and 6th predicting these to be AIMX and CONT respectively instead of OWNX and MISC
+```
+
+```{r}
+# Unsupervised learning example
+texts <- tolower(train_sentences[,"text"])
+
+head(texts)
+
+```
+
+```{r}
+#Get a character containing each word seen during training.
+
+tmp_file_txt <- tempfile()
+tmp_file_model <- tempfile()
+writeLines(text = texts, con = tmp_file_txt)
+
+#model training and loading
+execute(commands = c("skipgram", "-input", tmp_file_txt, "-output", tmp_file_model, "-verbose", 1))
+model <- load_model(tmp_file_model)
+```
+
+```{r}
+dict <- get_dictionary(model)
+head(dict)
+
+```
+
+```{r}
+get_word_vectors(model, head(dict, 6))
+```
+
+```{r}
+# get analogies
+
+model_test_path <- system.file("extdata", "model_unsupervised_test.bin", package = "fastrtext")
+model_test_path
+
+```
+
+```{r}
+model <- load_model(model_test_path)
+get_analogies(model, "experience", "experiences", "result",k = 25)
+```
+
+```{r}
+#Get a character containing each word seen during training.
+get_dictionary(model)
+```
+
+```{r}
+# get supervised models labels
+model_test_path <- system.file("extdata", "model_classification_test.bin", package = "fastrtext")
+model <- load_model(model_test_path)
+print(head(get_labels(model), 5))
+```
+
+```{r}
+
+model_test_path <- system.file("extdata", "model_unsupervised_test.bin", package = "fastrtext")
+model <- load_model(model_test_path)
+get_nn(model, "time", 10)
+```
+
+```{r}
+#Retrieve hyper parameters used to train the model
+model_test_path <- system.file("extdata", "model_classification_test.bin", package = "fastrtext")
+model <- load_model(model_test_path)
+print(head(get_parameters(model), 5))
+```
+
+```{r}
+#
+model_test_path <- system.file("extdata", "model_unsupervised_test.bin", package = "fastrtext")
+model <- load_model(model_test_path)
+m <- get_sentence_representation(model, "this is a test and my name is Neuron")
+print(m)
+```
+
+```{r}
+#Separate words in a text using space characters
+model_test_path <- system.file("extdata", "model_unsupervised_test.bin", package = "fastrtext")
+model <- load_model(model_test_path)
+tokens <- get_tokenized_text(model, "this is a test")
+print(tokens)
+
+```
+
+```{r}
+
+tokens <- get_tokenized_text(model, c("this is a test 1", "this is a second test!","my name is Fahad. a software engineer at BT UK"))
+print(tokens)
+```
+
+```{r}
+#Return the vector representation of provided words (unsupervised training) or provided labels (supervised training).
+model_test_path <- system.file("extdata", "model_unsupervised_test.bin", package = "fastrtext")
+model <- load_model(model_test_path)
+get_word_vectors(model, c("introduction", "we"))
+```
+
+```{r}
+data("test_sentences")
+model_test_path <- system.file("extdata", "model_classification_test.bin", package = "fastrtext")
+model <- load_model(model_test_path)
+sentence <- test_sentences[5, "text"]
+actual_label <- test_sentences[5,]
+```
+
+```{r}
+print(predict(model, sentence))
+```
+
+```{r}
+stop_words_sentences
+```
+
