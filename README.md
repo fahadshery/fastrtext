@@ -1,0 +1,2 @@
+# fastrtext
+testing fastrtext library
